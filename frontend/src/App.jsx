@@ -2,6 +2,7 @@ import { Routes, Route, Navigate } from "react-router-dom";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
+import CreateProject from "./pages/CreateProject";
 
 function App() {
   // check if user is logged in
@@ -17,6 +18,8 @@ function App() {
 
       {/* Auth routes */}
       <Route path="/login" element={<Login />} />
+      <Route path="/create-project" element={<CreateProject />} />
+
       <Route path="/register" element={<Register />} />
 
       {/* Protected route */}
@@ -32,3 +35,4 @@ function App() {
 }
 
 export default App;
+
