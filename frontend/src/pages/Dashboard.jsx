@@ -3,20 +3,27 @@ import API from "../services/api";
 
 export default function Dashboard() {
   const user = JSON.parse(localStorage.getItem("user"));
-  const [myProjects, setMyProjects] = useState([]);
+  const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchMyProjects = async () => {
+    const fetchProjects = async () => {
       try {
         const res = await API.get("/projects/all");
 
-        // Filter projects created by logged-in user
-        const filtered = res.data.filter(
-          (project) => project.createdBy?._id === user._id
-        );
+        let visibleProjects = [];
 
-        setMyProjects(filtered);
+        if (user.role === "student") {
+          // Student sees only their own projects
+          visibleProjects = res.data.filter(
+            (project) => project.createdBy?._id === user._id
+          );
+        } else {
+          // Admin & Alumni see all projects
+          visibleProjects = res.data;
+        }
+
+        setProjects(visibleProjects);
       } catch (error) {
         console.error(error);
       } finally {
@@ -24,7 +31,7 @@ export default function Dashboard() {
       }
     };
 
-    fetchMyProjects();
+    fetchProjects();
   }, []);
 
   return (
@@ -37,14 +44,18 @@ export default function Dashboard() {
 
       <hr style={{ margin: "20px 0" }} />
 
-      <h3>My Projects</h3>
+      <h3>
+        {user.role === "student"
+          ? "My Projects"
+          : "All Projects"}
+      </h3>
 
       {loading ? (
-        <p>Loading your projects...</p>
-      ) : myProjects.length === 0 ? (
-        <p>You have not created any projects yet.</p>
+        <p>Loading projects...</p>
+      ) : projects.length === 0 ? (
+        <p>No projects available.</p>
       ) : (
-        myProjects.map((project) => (
+        projects.map((project) => (
           <div
             key={project._id}
             style={{
@@ -55,23 +66,32 @@ export default function Dashboard() {
             }}
           >
             <h4>{project.title}</h4>
+
+            <p><strong>Problem:</strong> {project.problem}</p>
             <p><strong>Funds Required:</strong> ₹{project.fundsRequired}</p>
+
+            <p style={{ fontStyle: "italic" }}>
+              Created by: {project.createdBy?.name}
+            </p>
+
+            {/* Alumni-only action */}
+            {user.role === "alumni" && (
+              <button style={{ marginTop: "10px" }}>
+                Invest
+              </button>
+            )}
           </div>
         ))
       )}
 
       <br />
 
-      <button onClick={() => window.location.href = "/create-project"}>
-        Create New Project
-      </button>
-
-      <button
-        style={{ marginLeft: "10px" }}
-        onClick={() => window.location.href = "/projects"}
-      >
-        View All Projects
-      </button>
+      {/* Student-only action */}
+      {user.role === "student" && (
+        <button onClick={() => window.location.href = "/create-project"}>
+          Create New Project
+        </button>
+      )}
     </div>
   );
 }
