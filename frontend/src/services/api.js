@@ -3,17 +3,13 @@ import axios from "axios";
 const API = axios.create({
   baseURL: "https://alumniconnect-backend-ig3r.onrender.com/api",
 });
-
-// Automatically attach token if it exists
-API.interceptors.request.use((req) => {
-  const user = localStorage.getItem("user");
-
-  if (user) {
-    const token = JSON.parse(user).token;
-    req.headers.Authorization = `Bearer ${token}`;
+// AUTO‑ATTACH TOKEN IF PRESENT
+API.interceptors.request.use((config) => {
+  const user = JSON.parse(localStorage.getItem("user"));
+  if (user?.token) {
+    config.headers.Authorization = `Bearer ${user.token}`;
   }
-
-  return req;
+  return config;
 });
 
 export default API;
