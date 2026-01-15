@@ -3,163 +3,154 @@ import API from "../services/api";
 
 export default function Dashboard() {
   const [projects, setProjects] = useState([]);
+  const [pending, setPending] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const user = JSON.parse(localStorage.getItem("user"));
 
   // ================================
-  // FETCH PROJECTS BASED ON ROLE
+  // FETCH PROJECTS FOR DASHBOARD
   // ================================
   useEffect(() => {
     const fetchProjects = async () => {
       try {
-        const res = await API.get("/projects/all");
-
-        let visibleProjects = [];
-
-        // Student without investor mode → only own projects
-        if (user.role === "student" && !user.canInvest) {
-          visibleProjects = res.data.filter(
-            (project) => project.createdBy?._id === user._id
-          );
-        } else {
-          // Admin, Alumni, Student Investor → all projects
-          visibleProjects = res.data;
-        }
-
-        setProjects(visibleProjects);
-      } catch (error) {
-        console.error(error);
+        const res = await API.get("/projects/all", {
+          headers: { Authorization: `Bearer ${user.token}` }
+        });
+        setProjects(res.data);
+      } catch (err) {
+        console.error(err);
         alert("Failed to load projects");
       } finally {
         setLoading(false);
       }
     };
-
     fetchProjects();
   }, []);
 
   // ================================
-  // TOGGLE INVESTOR MODE (STUDENT)
+  // FETCH PENDING PROJECTS (ADMIN ONLY)
   // ================================
-const toggleInvestorMode = async () => {
-  console.log("✅ TOGGLE BUTTON CLICKED");
+  useEffect(() => {
+    if (user.role !== "admin") return;
 
-  try {
-    const res = await API.patch("/users/toggle-investor");
-
-    console.log("✅ RESPONSE:", res.data);
-
-    const updatedUser = {
-      ...user,
-      canInvest: res.data.canInvest,
+    const fetchPending = async () => {
+      try {
+        const res = await API.get("/admin/projects/pending", {
+          headers: { Authorization: `Bearer ${user.token}` }
+        });
+        setPending(res.data);
+      } catch (err) {
+        console.error(err);
+      }
     };
-
-    localStorage.setItem("user", JSON.stringify(updatedUser));
-    window.location.reload();
-  } catch (error) {
-    console.error("❌ TOGGLE ERROR:", error);
-    alert("Failed to toggle investor mode");
-  }
-};
-
+    fetchPending();
+  }, []);
 
   // ================================
-  // INVEST HANDLER
+  // INVEST (INVESTORS ONLY)
   // ================================
   const handleInvest = async (projectId) => {
-    const amount = prompt("Enter amount to invest");
-
-    if (!amount || isNaN(amount) || Number(amount) <= 0) {
-      alert("Please enter a valid amount");
-      return;
-    }
+    const amount = prompt("Enter amount to invest:");
+    if (!amount || isNaN(amount) || Number(amount) <= 0) return;
 
     try {
       await API.post(
         `/projects/invest/${projectId}`,
-        { amount },
-        {
-          headers: {
-            Authorization: `Bearer ${user.token}`,
-          },
-        }
+        { amount: Number(amount) },
+        { headers: { Authorization: `Bearer ${user.token}` } }
       );
-
-      alert("Investment successful");
+      alert("Investment successful!");
       window.location.reload();
-    } catch (error) {
-      alert(error.response?.data?.message || "Investment failed");
+    } catch (err) {
+      alert(err.response?.data?.message || "Investment failed");
     }
   };
 
   // ================================
-  // UI
+  // ADMIN APPROVE
   // ================================
+  const approve = async (id) => {
+    const valuationApproved = prompt("Enter approved valuation (₹):");
+    const equityApproved = prompt("Enter approved equity (%):");
+    if (!valuationApproved || !equityApproved) return;
+
+    try {
+      await API.patch(
+        `/admin/projects/${id}/approve`,
+        {
+          valuationApproved: Number(valuationApproved),
+          equityForSaleApproved: Number(equityApproved)
+        },
+        { headers: { Authorization: `Bearer ${user.token}` } }
+      );
+      alert("Project approved!");
+      window.location.reload();
+    } catch (err) {
+      alert("Approval failed");
+    }
+  };
+
+  // ================================
+  // ADMIN REJECT
+  // ================================
+  const reject = async (id) => {
+    const reason = prompt("Reason for rejection:");
+    try {
+      await API.patch(
+        `/admin/projects/${id}/reject`,
+        { reason },
+        { headers: { Authorization: `Bearer ${user.token}` } }
+      );
+      alert("Project rejected");
+      window.location.reload();
+    } catch (err) {
+      alert("Rejection failed");
+    }
+  };
+
   return (
     <div style={{ padding: "40px" }}>
       <h2>Dashboard</h2>
+      <p><strong>{user.name}</strong> ({user.role})</p>
+      <hr />
 
-      {/* USER INFO */}
-      <p><strong>Name:</strong> {user.name}</p>
-      <p><strong>Email:</strong> {user.email}</p>
-      <p><strong>Role:</strong> {user.role}</p>
-
-      {/* STUDENT INVESTOR TOGGLE */}
-      {user.role === "student" && (
-        <div style={{ marginBottom: "20px" }}>
-          <button onClick={toggleInvestorMode}>
-            {user.canInvest
-              ? "Deactivate Investor Mode"
-              : "Activate Investor Mode"}
-          </button>
-
-          <p style={{ marginTop: "5px", fontSize: "14px" }}>
-            Status:{" "}
-            <strong>
-              {user.canInvest ? "Investor Mode ON" : "Investor Mode OFF"}
-            </strong>
-          </p>
+      {/* ADMIN SECTION */}
+      {user.role === "admin" && (
+        <div>
+          <h3>Pending Projects for Approval</h3>
+          {pending.length === 0 ? <p>No pending projects</p> : pending.map(p => (
+            <div key={p._id} style={styles.card}>
+              <h4>{p.title}</h4>
+              <p><strong>Valuation Proposed:</strong> ₹{p.valuationProposal}</p>
+              <p><strong>Equity Proposed:</strong> {p.equityForSaleProposal}%</p>
+              <p><em>By {p.creator?.name}</em></p>
+              <button onClick={() => approve(p._id)}>Approve</button>
+              <button style={{ marginLeft: 10 }} onClick={() => reject(p._id)}>Reject</button>
+            </div>
+          ))}
+          <hr />
         </div>
       )}
 
-      <hr />
-
-      {/* PROJECTS SECTION */}
-      <h3>
-        {user.role === "student" && !user.canInvest
-          ? "My Projects"
-          : "All Projects"}
-      </h3>
-
+      <h3>Projects</h3>
       {loading ? (
-        <p>Loading projects...</p>
+        <p>Loading...</p>
       ) : projects.length === 0 ? (
-        <p>No projects available</p>
+        <p>No projects found</p>
       ) : (
-        projects.map((project) => (
-          <div
-            key={project._id}
-            style={{
-              border: "1px solid #ccc",
-              padding: "15px",
-              marginBottom: "15px",
-              borderRadius: "8px",
-            }}
-          >
+        projects.map(project => (
+          <div key={project._id} style={styles.card}>
             <h4>{project.title}</h4>
+            <p><strong>Status:</strong> {project.status}</p>
+            <p><strong>Valuation:</strong> {project.valuationApproved ? `₹${project.valuationApproved}` : "Pending"}</p>
+            <p><strong>Equity Offered:</strong> {project.equityForSaleApproved ? `${project.equityForSaleApproved}%` : "Pending"}</p>
+            {project.totalRaise && <p><strong>Target Raise:</strong> ₹{project.totalRaise}</p>}
+            <p><strong>Funds Raised:</strong> ₹{project.fundsRaised}</p>
 
-            <p><strong>Problem:</strong> {project.problem}</p>
-            <p><strong>Solution:</strong> {project.solution}</p>
-            <p><strong>Funds Required:</strong> ₹{project.fundsRequired}</p>
-            <p><strong>Funds Raised:</strong> ₹{project.fundsRaised || 0}</p>
-
-            <p style={{ fontStyle: "italic" }}>
-              Created by: {project.createdBy?.name}
-            </p>
-
-            {/* INVEST BUTTON */}
-            {user.canInvest && user.role !== "admin" && (
+            {user.role !== "admin" &&
+             user.canInvest &&
+             project.status === "open-for-funding" && (
               <button onClick={() => handleInvest(project._id)}>
                 Invest
               </button>
@@ -168,15 +159,21 @@ const toggleInvestorMode = async () => {
         ))
       )}
 
-      {/* STUDENT ACTION */}
+      {/* STUDENT CREATE BUTTON */}
       {user.role === "student" && (
-        <button
-          style={{ marginTop: "20px" }}
-          onClick={() => (window.location.href = "/create-project")}
-        >
+        <button style={{ marginTop: 20 }} onClick={() => (window.location.href = "/create-project")}>
           Create New Project
         </button>
       )}
     </div>
   );
 }
+
+const styles = {
+  card: {
+    border: "1px solid #ccc",
+    padding: "15px",
+    marginBottom: "12px",
+    borderRadius: "8px"
+  }
+};

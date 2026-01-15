@@ -1,46 +1,20 @@
 import express from "express";
-import Project from "../models/project.js";
+import {
+  createProject,
+  getAllProjects,
+  investInProject
+} from "../controllers/projectController.js";
 import protect from "../middleware/auth.js";
 
 const router = express.Router();
 
-// Student creates a project
-router.post("/create", protect, async (req, res) => {
-  try {
-    const { title, problem, solution, fundsRequired } = req.body;
+// STUDENT: submit project proposal
+router.post("/create", protect, createProject);
 
-    const project = await Project.create({
-      title,
-      problem,
-      solution,
-      fundsRequired,
-      createdBy: req.user._id,
-    });
+// DASHBOARD: fetch all projects for role-based filtering
+router.get("/all", protect, getAllProjects);
 
-    res.status(201).json(project);
-  } catch (error) {
-  console.error("CREATE PROJECT ERROR:", error);
-
-  res.status(500).json({
-    message: "Failed to create project",
-    error: error.message,
-    stack: error.stack
-  });
-}
-
-});
-
-// Anyone can view all projects
-router.get("/all", async (req, res) => {
-  try {
-    const projects = await Project.find().populate(
-      "createdBy",
-      "name email role"
-    );
-    res.json(projects);
-  } catch (error) {
-    res.status(500).json({ message: "Failed to fetch projects", error: error.message });
-  }
-});
+// INVESTOR: invest in open-for-funding project
+router.post("/invest/:id", protect, investInProject);
 
 export default router;

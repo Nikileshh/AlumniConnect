@@ -2,91 +2,83 @@ import { useState } from "react";
 import API from "../services/api";
 
 export default function CreateProject() {
-  const [formData, setFormData] = useState({
-    title: "",
-    problem: "",
-    solution: "",
-    fundsRequired: "",
-  });
+  const [title, setTitle] = useState("");
+  const [problem, setProblem] = useState("");
+  const [solution, setSolution] = useState("");
+  const [valuationProposal, setValuationProposal] = useState("");
+  const [equityProposal, setEquityProposal] = useState("");
 
-  const handleChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value,
-    });
-  };
+  const user = JSON.parse(localStorage.getItem("user"));
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    try {
-      const userData = JSON.parse(localStorage.getItem("user"));
+    if (!title || !problem || !solution || !valuationProposal || !equityProposal) {
+      alert("Please fill all fields");
+      return;
+    }
 
+    try {
       await API.post(
         "/projects/create",
         {
-          title: formData.title,
-          problem: formData.problem,
-          solution: formData.solution,
-          fundsRequired: Number(formData.fundsRequired),
+          title,
+          problem,
+          solution,
+          valuationProposal: Number(valuationProposal),
+          equityForSaleProposal: Number(equityProposal),
         },
         {
           headers: {
-            Authorization: `Bearer ${userData.token}`,
+            Authorization: `Bearer ${user.token}`,
           },
         }
       );
 
-      alert("Project created successfully 🎉");
+      alert("Project submitted for admin approval!");
+      window.location.href = "/dashboard";
     } catch (error) {
       console.error(error);
-      alert("Project creation failed");
+      alert("Failed to submit project");
     }
   };
 
+  // prevent admins from accessing creation page
+  if (user.role === "admin") {
+    return <p>Admins cannot create projects.</p>;
+  }
+
   return (
     <div style={{ padding: "40px" }}>
-      <h2>Create Project</h2>
+      <h2>Create Project Proposal</h2>
+      <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", width: "400px" }}>
+        
+        <label>Project Title</label>
+        <input value={title} onChange={(e) => setTitle(e.target.value)} />
 
-      <form onSubmit={handleSubmit}>
+        <label>Problem</label>
+        <textarea value={problem} onChange={(e) => setProblem(e.target.value)} />
+
+        <label>Solution</label>
+        <textarea value={solution} onChange={(e) => setSolution(e.target.value)} />
+
+        <label>Proposed Valuation (₹)</label>
         <input
-          name="title"
-          placeholder="Project Title"
-          value={formData.title}
-          onChange={handleChange}
-          required
-        />
-        <br /><br />
-
-        <textarea
-          name="problem"
-          placeholder="Problem Statement"
-          value={formData.problem}
-          onChange={handleChange}
-          required
-        />
-        <br /><br />
-
-        <textarea
-          name="solution"
-          placeholder="Proposed Solution"
-          value={formData.solution}
-          onChange={handleChange}
-          required
-        />
-        <br /><br />
-
-        <input
-          name="fundsRequired"
           type="number"
-          placeholder="Funds Required"
-          value={formData.fundsRequired}
-          onChange={handleChange}
-          required
+          value={valuationProposal}
+          onChange={(e) => setValuationProposal(e.target.value)}
         />
-        <br /><br />
 
-        <button type="submit">Create Project</button>
+        <label>Equity Offered (%)</label>
+        <input
+          type="number"
+          value={equityProposal}
+          onChange={(e) => setEquityProposal(e.target.value)}
+        />
+
+        <button type="submit" style={{ marginTop: "20px" }}>
+          Submit for Approval
+        </button>
       </form>
     </div>
   );
