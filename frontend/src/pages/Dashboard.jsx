@@ -172,13 +172,12 @@ export default function Dashboard() {
             {project.totalRaise && <p><strong>Target Raise:</strong> ₹{project.totalRaise}</p>}
             <p><strong>Funds Raised:</strong> ₹{project.fundsRaised}</p>
 
-            {user.role !== "admin" &&
-             user.canInvest &&
-             project.status === "open-for-funding" && (
+            {(user.role === "alumni" || user.canInvest) && project.status === "open-for-funding" && (
               <button onClick={() => handleInvest(project._id)}>
                 Invest
               </button>
             )}
+
           </div>
         ))
       )}
