@@ -3,33 +3,54 @@ import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
 import CreateProject from "./pages/CreateProject";
-import Projects from "./pages/Projects";
+import Marketplace from "./pages/Marketplace";
+import Portfolio from "./pages/Portfolio";
+import Completed from "./pages/Completed";
 
 function App() {
-  // check if user is logged in
-  const isLoggedIn = !!localStorage.getItem("user");
+  const user = JSON.parse(localStorage.getItem("user"));
+  const isLoggedIn = !!user;
 
   return (
     <Routes>
-      {/* Default route */}
+      {/* Redirect root */}
       <Route
         path="/"
-        element={isLoggedIn ? <Navigate to="/dashboard" /> : <Navigate to="/login" />}
+        element={
+          isLoggedIn ? <Navigate to="/dashboard" /> : <Navigate to="/login" />
+        }
       />
 
-      {/* Auth routes */}
+      {/* Auth */}
       <Route path="/login" element={<Login />} />
-      <Route path="/create-project" element={<CreateProject />} />
-
-      <Route path="/projects" element={<Projects />} />
-
-
       <Route path="/register" element={<Register />} />
 
-      {/* Protected route */}
+      {/* Protected Routes */}
       <Route
         path="/dashboard"
         element={isLoggedIn ? <Dashboard /> : <Navigate to="/login" />}
+      />
+      <Route
+        path="/marketplace"
+        element={isLoggedIn ? <Marketplace /> : <Navigate to="/login" />}
+      />
+      <Route
+        path="/portfolio"
+        element={isLoggedIn ? <Portfolio /> : <Navigate to="/login" />}
+      />
+      <Route
+        path="/completed"
+        element={isLoggedIn ? <Completed /> : <Navigate to="/login" />}
+      />
+      <Route
+        path="/create-project"
+        element={
+          isLoggedIn && user.role === "student" ? (
+            <CreateProject />
+          ) : (
+            <Navigate to="/login" />
+          )
+        }
       />
 
       {/* Fallback */}
@@ -39,4 +60,3 @@ function App() {
 }
 
 export default App;
-

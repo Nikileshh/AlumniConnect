@@ -1,95 +1,57 @@
-import Project from "../models/project.js";
+import Project from "../models/Project.js";
 
-export const createProject = async (req, res) => {
+export const getMyProjects = async (req, res) => {
   try {
-    const {
-      title,
-      problem,
-      solution,
-      valuationProposal,
-      equityForSaleProposal
-    } = req.body;
-
-    // validate input
-    if (!title || !problem || !solution || !valuationProposal || !equityForSaleProposal) {
-      return res.status(400).json({ message: "Missing required fields" });
-    }
-
-    const project = await Project.create({
-      title,
-      problem,
-      solution,
-      valuationProposal,
-      equityForSaleProposal,
-      creator: req.user._id,
-      status: "pending-approval"
-    });
-
-    res.status(201).json(project);
-  } catch (error) {
-    console.error("CREATE PROJECT ERROR:", error);
-    res.status(500).json({ message: "Failed to create project" });
-  }
-};
-
-// Fetch all visible projects (used by dashboard)
-export const getAllProjects = async (req, res) => {
-  try {
-    const projects = await Project.find({})
-      .populate("creator", "name email role")
-      .populate("investors.investor", "name email role");
-
+    const projects = await Project.find({ createdBy: req.user._id }).sort({ createdAt: -1 });
     res.json(projects);
-  } catch (error) {
-    console.error("GET PROJECTS ERROR:", error);
-    res.status(500).json({ message: "Failed to fetch projects" });
+  } catch (err) {
+    res.status(500).json({ message: "Failed to load projects" });
   }
 };
 
-// Investor invests in a project
-export const investInProject = async (req, res) => {
+export const getMarketplaceProjects = async (req, res) => {
   try {
-    const projectId = req.params.id;
-    const { amount } = req.body;
-    const investorId = req.user._id;
+    const user = req.user;
 
-    if (!amount || Number(amount) <= 0) {
-      return res.status(400).json({ message: "Invalid investment amount" });
+    // ADMIN sees all
+    if (user.role === "admin") {
+      const all = await Project.find({
+        status: { $in: ["approved", "open-for-funding"] }
+      })
+        .populate("createdBy", "name")
+        .sort({ createdAt: -1 });
+
+      return res.json(all);
     }
 
-    const project = await Project.findById(projectId);
+    // ALUMNI + STUDENT-INVESTOR
+    if (user.role === "alumni" || user.canInvest) {
+      const investables = await Project.find({
+        status: { $in: ["approved", "open-for-funding"] }
+      })
+        .populate("createdBy", "name")
+        .sort({ createdAt: -1 });
 
-    if (!project) return res.status(404).json({ message: "Project not found" });
-
-    if (project.status !== "open-for-funding") {
-      return res.status(400).json({ message: "Project not open for funding" });
+      return res.json(investables);
     }
 
-    const contribution = Number(amount);
+    // DEFAULT STUDENT (not investor)
+    return res.status(403).json({ message: "Enable investor mode to view marketplace" });
+  } catch (err) {
+    res.status(500).json({ message: "Failed to load marketplace" });
+  }
+};
 
-    // Equity allocation calculation
-    const equityPerDollar = project.equityForSaleApproved / project.totalRaise;
-    const allocatedEquity = equityPerDollar * contribution;
+export const getCompletedProjects = async (req, res) => {
+  try {
+    const completed = await Project.find({
+      status: "funded"
+    })
+      .populate("createdBy", "name")
+      .sort({ updatedAt: -1 });
 
-    // Record investment
-    project.investors.push({
-      investor: investorId,
-      amount: contribution,
-      equity: allocatedEquity
-    });
-
-    project.fundsRaised += contribution;
-
-    // Check if funding goal reached
-    if (project.fundsRaised >= project.totalRaise) {
-      project.status = "funded";
-    }
-
-    await project.save();
-
-    res.status(200).json({ message: "Investment successful" });
-  } catch (error) {
-    console.error("INVEST ERROR:", error);
-    res.status(500).json({ message: "Failed to invest" });
+    return res.json(completed);
+  } catch (err) {
+    res.status(500).json({ message: "Failed to load completed projects" });
   }
 };

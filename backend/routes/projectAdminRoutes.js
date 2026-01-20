@@ -5,6 +5,7 @@ import {
   rejectProject
 } from "../controllers/projectAdminController.js";
 import protect from "../middleware/auth.js";
+import adminOnly from "../middleware/admin0nly.js";
 
 const router = express.Router();
 

@@ -1,50 +1,69 @@
-import Project from "../models/project.js";
+import Project from "../models/Project.js";
 
+// =============================================
 // ADMIN: Fetch all pending projects
+// =============================================
 export const getPendingProjects = async (req, res) => {
   try {
-    const projects = await Project.find({ status: "pending-approval" })
-      .populate("creator", "name email role");
+    const pending = await Project.find({ status: "pending-approval" })
+      .populate("createdBy", "name email role")
+      .sort({ createdAt: -1 });
 
-    res.json(projects);
+    res.json(pending);
   } catch (error) {
     console.error("GET PENDING PROJECTS ERROR:", error);
     res.status(500).json({ message: "Failed to fetch pending projects" });
   }
 };
 
-// ADMIN: Approve proposal + set approved valuation/equity
+// =============================================
+// ADMIN: Approve project & set valuation + equity
+// Opens funding
+// =============================================
 export const approveProject = async (req, res) => {
   try {
     const projectId = req.params.id;
     const { valuationApproved, equityForSaleApproved } = req.body;
 
-    if (!valuationApproved || !equityForSaleApproved) {
-      return res.status(400).json({ message: "Missing approved valuation or equity" });
+    if (valuationApproved == null || equityForSaleApproved == null) {
+      return res.status(400).json({
+        message: "Missing approved valuation or approved equity"
+      });
     }
 
     const project = await Project.findById(projectId);
 
-    if (!project) return res.status(404).json({ message: "Project not found" });
+    if (!project) {
+      return res.status(404).json({ message: "Project not found" });
+    }
 
+    // Save approved fields
     project.valuationApproved = valuationApproved;
     project.equityForSaleApproved = equityForSaleApproved;
 
-    // compute required raise based on % equity
-    project.totalRaise = (valuationApproved * equityForSaleApproved) / 100;
+    // Funding target = valuation × (equity% / 100)
+    project.totalRaise = Math.round(
+      valuationApproved * (equityForSaleApproved / 100)
+    );
 
     project.status = "open-for-funding";
 
     await project.save();
 
-    res.status(200).json({ message: "Project approved and funding opened" });
+    res.status(200).json({
+      message: "Project approved — funding opened",
+      projectId: project._id,
+      totalRaise: project.totalRaise
+    });
   } catch (error) {
     console.error("APPROVE PROJECT ERROR:", error);
     res.status(500).json({ message: "Failed to approve project" });
   }
 };
 
-// ADMIN: Reject proposal
+// =============================================
+// ADMIN: Reject project with reason
+// =============================================
 export const rejectProject = async (req, res) => {
   try {
     const projectId = req.params.id;
@@ -52,11 +71,12 @@ export const rejectProject = async (req, res) => {
 
     const project = await Project.findById(projectId);
 
-    if (!project) return res.status(404).json({ message: "Project not found" });
+    if (!project) {
+      return res.status(404).json({ message: "Project not found" });
+    }
 
     project.status = "rejected";
     project.rejectionReason = reason || "No reason provided";
-
     await project.save();
 
     res.status(200).json({ message: "Project rejected" });

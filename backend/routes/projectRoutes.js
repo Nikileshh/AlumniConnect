@@ -5,6 +5,7 @@ import {
   investInProject
 } from "../controllers/projectController.js";
 import protect from "../middleware/auth.js";
+import { getMyProjects, getMarketplaceProjects, getCompletedProjects } from "../controllers/projectController.js";
 
 const router = express.Router();
 
@@ -16,5 +17,9 @@ router.get("/all", protect, getAllProjects);
 
 // INVESTOR: invest in open-for-funding project
 router.post("/invest/:id", protect, investInProject);
+
+router.get("/mine", protect, getMyProjects);
+router.get("/marketplace", protect, getMarketplaceProjects);
+router.get("/completed", protect, getCompletedProjects);
 
 export default router;

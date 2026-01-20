@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import API from "../services/api";
+import { useNavigate } from "react-router-dom";
 
 export default function Dashboard() {
   const [projects, setProjects] = useState([]);
@@ -7,14 +8,15 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
 
   const user = JSON.parse(localStorage.getItem("user"));
+  const navigate = useNavigate();
 
   // ================================
-  // FETCH PROJECTS FOR DASHBOARD
+  // FETCH MY PROJECTS (STUDENTS)
   // ================================
   useEffect(() => {
-    const fetchProjects = async () => {
+    const fetchMyProjects = async () => {
       try {
-        const res = await API.get("/projects/all", {
+        const res = await API.get("/projects/mine", {
           headers: { Authorization: `Bearer ${user.token}` }
         });
         setProjects(res.data);
@@ -25,11 +27,12 @@ export default function Dashboard() {
         setLoading(false);
       }
     };
-    fetchProjects();
+
+    if (user.role === "student") fetchMyProjects();
   }, []);
 
   // ================================
-  // FETCH PENDING PROJECTS (ADMIN ONLY)
+  // ADMIN — FETCH PENDING PROJECTS
   // ================================
   useEffect(() => {
     if (user.role !== "admin") return;
@@ -44,37 +47,27 @@ export default function Dashboard() {
         console.error(err);
       }
     };
+
     fetchPending();
   }, []);
 
+  // ================================
+  // STUDENT — INVESTOR MODE TOGGLE
+  // ================================
   const toggleInvestorMode = async () => {
-  try {
-    const res = await API.patch("/users/toggle-investor");
-    const updatedUser = { ...user, canInvest: res.data.canInvest };
-    localStorage.setItem("user", JSON.stringify(updatedUser));
-    window.location.reload();
-  } catch (err) {
-    alert("Failed to toggle investor mode");
-  }
-  };
-
-  // ================================
-  // INVEST (INVESTORS ONLY)
-  // ================================
-  const handleInvest = async (projectId) => {
-    const amount = prompt("Enter amount to invest:");
-    if (!amount || isNaN(amount) || Number(amount) <= 0) return;
-
     try {
-      await API.post(
-        `/projects/invest/${projectId}`,
-        { amount: Number(amount) },
-        { headers: { Authorization: `Bearer ${user.token}` } }
-      );
-      alert("Investment successful!");
-      window.location.reload();
+      const res = await API.patch("/users/toggle-investor");
+      const updatedUser = { ...user, canInvest: res.data.canInvest };
+      localStorage.setItem("user", JSON.stringify(updatedUser));
+
+      // after enabling investor mode, redirect to marketplace
+      if (res.data.canInvest) {
+        navigate("/marketplace");
+      } else {
+        navigate("/dashboard");
+      }
     } catch (err) {
-      alert(err.response?.data?.message || "Investment failed");
+      alert("Failed to toggle investor mode");
     }
   };
 
@@ -95,6 +88,7 @@ export default function Dashboard() {
         },
         { headers: { Authorization: `Bearer ${user.token}` } }
       );
+
       alert("Project approved!");
       window.location.reload();
     } catch (err) {
@@ -107,6 +101,8 @@ export default function Dashboard() {
   // ================================
   const reject = async (id) => {
     const reason = prompt("Reason for rejection:");
+    if (!reason) return;
+
     try {
       await API.patch(
         `/admin/projects/${id}/reject`,
@@ -120,73 +116,82 @@ export default function Dashboard() {
     }
   };
 
+  // ======================================================
+  // UI START
+  // ======================================================
+
   return (
     <div style={{ padding: "40px" }}>
       <h2>Dashboard</h2>
       <p><strong>{user.name}</strong> ({user.role})</p>
       <hr />
 
-      {/* STUDENT INVESTOR TOGGLE */}
+      {/* ================================
+          STUDENT — INVESTOR MODE TOGGLE
+      ================================ */}
       {user.role === "student" && (
         <div style={{ marginBottom: "20px" }}>
           <button onClick={toggleInvestorMode}>
             {user.canInvest ? "Deactivate Investor Mode" : "Activate Investor Mode"}
           </button>
-
           <p style={{ marginTop: "5px", fontSize: "14px" }}>
             Status: <strong>{user.canInvest ? "Investor Mode ON" : "Investor Mode OFF"}</strong>
           </p>
         </div>
       )}
 
-      {/* ADMIN SECTION */}
+      {/* ================================
+          ADMIN — PENDING PROJECTS
+      ================================ */}
       {user.role === "admin" && (
         <div>
           <h3>Pending Projects for Approval</h3>
-          {pending.length === 0 ? <p>No pending projects</p> : pending.map(p => (
-            <div key={p._id} style={styles.card}>
-              <h4>{p.title}</h4>
-              <p><strong>Valuation Proposed:</strong> ₹{p.valuationProposal}</p>
-              <p><strong>Equity Proposed:</strong> {p.equityForSaleProposal}%</p>
-              <p><em>By {p.creator?.name}</em></p>
-              <button onClick={() => approve(p._id)}>Approve</button>
-              <button style={{ marginLeft: 10 }} onClick={() => reject(p._id)}>Reject</button>
-            </div>
-          ))}
+          {pending.length === 0 ? (
+            <p>No pending projects</p>
+          ) : (
+            pending.map((p) => (
+              <div key={p._id} style={styles.card}>
+                <h4>{p.title}</h4>
+                <p><strong>Valuation Proposed:</strong> ₹{p.valuationProposal}</p>
+                <p><strong>Equity Proposed:</strong> {p.equityForSaleProposal}%</p>
+                <p><em>By {p.creator?.name}</em></p>
+                <button onClick={() => approve(p._id)}>Approve</button>
+                <button style={{ marginLeft: 10 }} onClick={() => reject(p._id)}>Reject</button>
+              </div>
+            ))
+          )}
           <hr />
         </div>
       )}
 
-      <h3>Projects</h3>
-      {loading ? (
-        <p>Loading...</p>
-      ) : projects.length === 0 ? (
-        <p>No projects found</p>
-      ) : (
-        projects.map(project => (
-          <div key={project._id} style={styles.card}>
-            <h4>{project.title}</h4>
-            <p><strong>Status:</strong> {project.status}</p>
-            <p><strong>Valuation:</strong> {project.valuationApproved ? `₹${project.valuationApproved}` : "Pending"}</p>
-            <p><strong>Equity Offered:</strong> {project.equityForSaleApproved ? `${project.equityForSaleApproved}%` : "Pending"}</p>
-            {project.totalRaise && <p><strong>Target Raise:</strong> ₹{project.totalRaise}</p>}
-            <p><strong>Funds Raised:</strong> ₹{project.fundsRaised}</p>
-
-            {(user.role === "alumni" || user.canInvest) && project.status === "open-for-funding" && (
-              <button onClick={() => handleInvest(project._id)}>
-                Invest
-              </button>
-            )}
-
-          </div>
-        ))
-      )}
-
-      {/* STUDENT CREATE BUTTON */}
+      {/* ================================
+          STUDENT — MY PROJECTS
+      ================================ */}
       {user.role === "student" && (
-        <button style={{ marginTop: 20 }} onClick={() => (window.location.href = "/create-project")}>
-          Create New Project
-        </button>
+        <>
+          <h3>My Projects</h3>
+
+          {loading ? (
+            <p>Loading...</p>
+          ) : projects.length === 0 ? (
+            <p>You have not created any projects yet</p>
+          ) : (
+            projects.map((p) => (
+              <div key={p._id} style={styles.card}>
+                <h4>{p.title}</h4>
+                <p><strong>Status:</strong> {p.status}</p>
+                <p><strong>Valuation:</strong> {p.valuationApproved ? `₹${p.valuationApproved}` : "Pending"}</p>
+                <p><strong>Equity:</strong> {p.equityForSaleApproved ? `${p.equityForSaleApproved}%` : "Pending"}</p>
+                {p.totalRaise && <p><strong>Target Raise:</strong> ₹{p.totalRaise}</p>}
+                <p><strong>Funds Raised:</strong> ₹{p.fundsRaised}</p>
+              </div>
+            ))
+          )}
+
+          <button style={{ marginTop: 20 }} onClick={() => navigate("/create-project")}>
+            Create New Project
+          </button>
+        </>
       )}
     </div>
   );
