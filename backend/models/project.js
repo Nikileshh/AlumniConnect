@@ -47,9 +47,17 @@ const projectSchema = new mongoose.Schema(
         amount: Number,
         equity: Number, // % equity allocated
       }
-    ]
+    ],
+    returnMultiplier: { type: Number, default: null }, // e.g. 3.2x
+    exitValuation: { type: Number, default: null },
+    exitedAt: { type: Date, default: null },
+    isExited: { type: Boolean, default: false },
+
   },
+
+
   { timestamps: true }
 );
+
 
 export default mongoose.model("Project", projectSchema);

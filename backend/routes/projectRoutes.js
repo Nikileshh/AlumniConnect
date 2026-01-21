@@ -18,6 +18,6 @@ router.get("/mine", protect, getMyProjects);
 router.get("/marketplace", protect, getMarketplaceProjects);
 router.get("/completed", protect, getCompletedProjects);
 router.get("/portfolio", protect, getPortfolio);
-
+router.post("/:id/exit", protect, exitProject);
 export default router;
 

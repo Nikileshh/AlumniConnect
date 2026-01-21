@@ -148,13 +148,48 @@ export const getPortfolio = async (req, res) => {
     const projects = await Project.find({
       "investors.investor": userId
     })
+    
       .populate("createdBy", "name")
       .populate("investors.investor", "name")
       .sort({ updatedAt: -1 });
+
+    project.investors.forEach(inv => {
+    inv.payout = project.isExited ? inv.amount * project.returnMultiplier : null;
+    inv.roi = project.isExited ? ((inv.payout - inv.amount) / inv.amount) * 100 : null;
+    });
 
     return res.json(projects);
   } catch (err) {
     console.error("GET PORTFOLIO ERROR:", err);
     res.status(500).json({ message: "Failed to load portfolio" });
+  }
+};
+export const exitProject = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { returnMultiplier } = req.body;
+
+    if (!returnMultiplier || returnMultiplier <= 0) {
+      return res.status(400).json({ message: "Invalid return multiplier" });
+    }
+
+    const project = await Project.findById(id);
+    if (!project) return res.status(404).json({ message: "Project not found" });
+
+    if (project.status !== "funded") {
+      return res.status(400).json({ message: "Project is not fully funded" });
+    }
+
+    project.isExited = true;
+    project.returnMultiplier = returnMultiplier;
+    project.exitValuation = project.valuationApproved * returnMultiplier;
+    project.exitedAt = new Date();
+
+    await project.save();
+
+    return res.json({ message: "Project exited successfully", project });
+  } catch (err) {
+    console.error("EXIT ERROR:", err);
+    res.status(500).json({ message: "Failed to process exit" });
   }
 };
