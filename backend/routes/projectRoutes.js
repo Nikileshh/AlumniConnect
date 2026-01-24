@@ -15,7 +15,7 @@ const router = express.Router();
 // STUDENT: submit project proposal
 router.post("/create", protect, createProject);
 router.post("/invest/:id", protect, investInProject);
-router.post("/:id/exit", protect, exitProject);
+router.post("/:id/exit", protect, adminOnly, exitProject);
 router.get("/mine", protect, getMyProjects);
 router.get("/marketplace", protect, getMarketplaceProjects);
 router.get("/completed", protect, getCompletedProjects);

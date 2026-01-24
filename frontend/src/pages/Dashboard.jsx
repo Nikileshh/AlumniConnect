@@ -115,6 +115,24 @@ export default function Dashboard() {
     }
   };
 
+  const exitProject = async (id) => {
+    const multiplier = prompt("Enter return multiplier (e.g. 2.5):");
+    if (!multiplier || Number(multiplier) <= 0) return;
+
+    try {
+      await API.post(
+        `/projects/${id}/exit`,
+        { returnMultiplier: Number(multiplier) },
+        { headers: { Authorization: `Bearer ${user.token}` } }
+      );
+
+      alert("Project exited successfully");
+      window.location.reload();
+    } catch (err) {
+      alert(err.response?.data?.message || "Exit failed");
+    }
+  };
+
   // ======================================================
   // UI START
   // ======================================================
@@ -172,6 +190,15 @@ export default function Dashboard() {
           )}
           <hr />
         </div>
+      )}
+
+      {p.status === "funded" && !p.isExited && (
+        <button
+          style={{ marginLeft: 10, background: "#e74c3c", color: "white" }}
+          onClick={() => exitProject(p._id)}
+        >
+          Exit Project
+        </button>
       )}
 
       {/* ================================
