@@ -6,7 +6,6 @@ import {
 } from "../controllers/projectAdminController.js";
 import protect from "../middleware/auth.js";
 import adminOnly from "../middleware/adminOnly.js";
-import { getAdminProjects } from "../controllers/projectAdminController.js";
 
 const router = express.Router();
 
@@ -18,8 +17,5 @@ router.patch("/:id/approve", protect, adminOnly, approveProject);
 
 // REJECT proposal (sends reason & locks project)
 router.patch("/:id/reject", protect, adminOnly, rejectProject);
-
-router.get("/projects", protect, adminOnly, getAdminProjects);
-
 
 export default router;
