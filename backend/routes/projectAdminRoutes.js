@@ -6,6 +6,7 @@ import {
 } from "../controllers/projectAdminController.js";
 import protect from "../middleware/auth.js";
 import adminOnly from "../middleware/adminOnly.js";
+import { getAdminProjects } from "../controllers/projectAdminController.js";
 
 const router = express.Router();
 
