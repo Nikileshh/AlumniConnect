@@ -98,17 +98,6 @@ export const investInProject = async (req, res) => {
 
     const project = await Project.findById(projectId);
 
-    // prevent over-investing
-    if (project.totalRaise) {
-      const remaining = project.totalRaise - project.fundsRaised;
-
-    if (Number(amount) > remaining) {
-      return res.status(400).json({
-        message: `Investment exceeds remaining amount. Only ₹${remaining} left to raise.`
-      });
-    }
-    }
-
     if (!project) {
       return res.status(404).json({ message: "Project not found" });
     }
